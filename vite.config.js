@@ -4,11 +4,11 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/youtube-sentiment-analysis-frontend',
-  // resolve: {
-  //   alias: {
-  //     '@': path.resolve(__dirname, './src'),
-  //   },
-  // },
+  base: '/youtube-sentiment-analysis-frontend/',
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 });
 
