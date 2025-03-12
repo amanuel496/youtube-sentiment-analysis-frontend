@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
 import ReactWordCloud from "react-d3-cloud";
 import "./index.css";
-import "."
+import "./App.css";
 
 export default function App() {
   const [videoLink, setVideoLink] = useState("");
