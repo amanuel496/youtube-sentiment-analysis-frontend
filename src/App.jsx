@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
-import ReactWordCloud from "react-d3-cloud";
-import "./index.css";
-import "./App.css";
+import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
+import ReactWordCloud from 'react-d3-cloud';
+import './index.css';
+import './App.css';
 
 export default function App() {
-  const [videoLink, setVideoLink] = useState("");
+  // ------------------------------------------------------------------------------
+  // State Hooks
+  // ------------------------------------------------------------------------------
+  const [videoLink, setVideoLink] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [resultMessage, setResultMessage] = useState("");
+  const [resultMessage, setResultMessage] = useState('');
   const [sentimentData, setSentimentData] = useState([]);
   const [keywordsSummary, setKeywordsSummary] = useState({
     positive: [],
@@ -16,42 +19,88 @@ export default function App() {
     neutral: [],
     mixed: [],
   });
-  const [selectedSentiment, setSelectedSentiment] = useState("positive");
+  const [selectedSentiment, setSelectedSentiment] = useState('positive');
   const [contentSuggestions, setContentSuggestions] = useState([]);
-  const [executiveSummary, setExecutiveSummary] = useState("");
+  const [executiveSummary, setExecutiveSummary] = useState('');
 
+  // ------------------------------------------------------------------------------
+  // Environment-Specific API Base URL
+  // ------------------------------------------------------------------------------
+  const API_BASE_URL =
+    import.meta.env.MODE === 'development'
+      ? import.meta.env.VITE_API_URL_DEV
+      : import.meta.env.VITE_API_URL_PROD;
+
+  // ------------------------------------------------------------------------------
+  // Configuration Constants
+  // ------------------------------------------------------------------------------
+  const PIE_COLORS = ['#0088FE', '#FF8042', '#00C49F', '#FFBB28'];
+
+  // Font size mapper for word cloud
+  const fontSizeMapper = (word) => {
+    const minSize = 20;
+    const maxSize = 80;
+    const scaleFactor = 10; // Adjust for better distribution
+    // Limits the font size between the min and max
+    return Math.max(minSize, Math.min(Math.log2(word.value + 1) * scaleFactor, maxSize));
+  };
+
+  // Keep word orientation fixed
+  const rotate = () => 0;
+
+  // ------------------------------------------------------------------------------
+  // Helpers
+  // ------------------------------------------------------------------------------
+  const getSummaryBulletPoints = () => {
+    return executiveSummary
+      ? executiveSummary
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+      : [];
+  };
+
+  // ------------------------------------------------------------------------------
+  // Main Handler
+  // ------------------------------------------------------------------------------
   const handleSubmit = async () => {
     if (!videoLink.trim()) {
-      alert("Please enter a YouTube link.");
+      alert('Please enter a YouTube link.');
       return;
     }
 
+    // Reset UI state
     setIsLoading(true);
-    setResultMessage("");
+    setResultMessage('');
     setSentimentData([]);
     setKeywordsSummary({ positive: [], negative: [], neutral: [], mixed: [] });
     setContentSuggestions([]);
-    setExecutiveSummary("");
-
-    const url = `${import.meta.env.VITE_API_URL}/run-etl?videoLink=${videoLink}`;
+    setExecutiveSummary('');
 
     try {
+      // Encode the YouTube URL to avoid query-string parsing issues
+      const encodedVideoLink = encodeURIComponent(videoLink);
+      const url = `${API_BASE_URL}/run-etl?videoLink=${encodedVideoLink}`;
+
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP status ${response.status}`);
+      }
 
       const data = await response.json();
 
-      if (data.status === "Success") {
+      if (data.status === 'Success') {
+        // Update chart data
         setSentimentData([
-          { name: "Positive", value: data.sentiment_breakdown.positive },
-          { name: "Negative", value: data.sentiment_breakdown.negative },
-          { name: "Neutral", value: data.sentiment_breakdown.neutral },
-          { name: "Mixed", value: data.sentiment_breakdown.mixed },
+          { name: 'Positive', value: data.sentiment_breakdown.positive },
+          { name: 'Negative', value: data.sentiment_breakdown.negative },
+          { name: 'Neutral', value: data.sentiment_breakdown.neutral },
+          { name: 'Mixed', value: data.sentiment_breakdown.mixed },
         ]);
 
-        setKeywordsSummary(data.keywords_summary || {});
+        setKeywordsSummary(data.topics || {});
         setContentSuggestions(data.content_suggestions || []);
-        setExecutiveSummary(data.executive_summary || "No executive summary available.");
+        setExecutiveSummary(data.executive_summary || 'No executive summary available.');
       } else {
         setResultMessage(`Error: ${data.error}`);
       }
@@ -62,18 +111,16 @@ export default function App() {
     }
   };
 
-  const COLORS = ["#0088FE", "#FF8042", "#00C49F", "#FFBB28"];
-
+  // ------------------------------------------------------------------------------
+  // Derived Variables
+  // ------------------------------------------------------------------------------
   const rawKeywords = keywordsSummary[selectedSentiment] || {};
   const wordCloudData = Object.entries(rawKeywords).map(([text, value]) => ({ text, value }));
+  const summaryBulletPoints = getSummaryBulletPoints();
 
-  const fontSizeMapper = (word) => Math.log2(word.value) * 30;
-  const rotate = () => 0;
-
-  const summaryBulletPoints = executiveSummary
-    ? executiveSummary.split("\n").map((line) => line.trim()).filter(Boolean)
-    : [];
-
+  // ------------------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 p-6 flex justify-center items-start">
       <div className="w-full max-w-4xl bg-white rounded-md shadow-lg p-6 space-y-6 flex flex-col">
@@ -88,13 +135,12 @@ export default function App() {
             onChange={(e) => setVideoLink(e.target.value)}
             className="flex-1 w-full max-w-sm border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-
           <button
             onClick={handleSubmit}
             disabled={isLoading}
             className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? <Loader2 className="animate-spin mr-2 w-5 h-5" /> : "Run"}
+            {isLoading ? <Loader2 className="animate-spin mr-2 w-5 h-5" /> : 'Run'}
           </button>
         </div>
 
@@ -102,9 +148,9 @@ export default function App() {
         {resultMessage && (
           <p
             className={`text-center font-semibold p-2 rounded ${
-              resultMessage.startsWith("Success")
-                ? "text-green-800 bg-green-100"
-                : "text-red-800 bg-red-100"
+              resultMessage.startsWith('Success')
+                ? 'text-green-800 bg-green-100'
+                : 'text-red-800 bg-red-100'
             }`}
           >
             {resultMessage}
@@ -113,7 +159,6 @@ export default function App() {
 
         {/* Main Content */}
         <div className="overflow-y-auto h-96 space-y-4">
-          
           {/* Sentiment Pie Chart */}
           {sentimentData.length > 0 && (
             <div className="sentiment-chart">
@@ -131,7 +176,7 @@ export default function App() {
                     dataKey="value"
                   >
                     {sentimentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -143,10 +188,14 @@ export default function App() {
 
           {/* Keyword Highlights */}
           <div className="bg-gray-50 border border-gray-200 rounded p-4">
-            <h3 className="text-xl font-semibold mb-4">Keyword Highlights ({selectedSentiment} comments)</h3>
+            <h3 className="text-xl font-semibold mb-4">
+              Keyword Highlights ({selectedSentiment} comments)
+            </h3>
 
             <div className="flex items-center space-x-3 mb-4">
-              <label htmlFor="sentimentSelect" className="font-medium">Select sentiment:</label>
+              <label htmlFor="sentimentSelect" className="font-medium">
+                Select sentiment:
+              </label>
               <select
                 id="sentimentSelect"
                 onChange={(e) => setSelectedSentiment(e.target.value)}
@@ -161,7 +210,18 @@ export default function App() {
             </div>
 
             <div className="mx-auto flex justify-center">
-              <ReactWordCloud data={wordCloudData} fontSizeMapper={fontSizeMapper} rotate={rotate} padding={2} width={500} height={300} />
+              {wordCloudData.length > 0 ? (
+                <ReactWordCloud
+                  data={wordCloudData}
+                  fontSizeMapper={fontSizeMapper}
+                  rotate={rotate}
+                  padding={2}
+                  width={500}
+                  height={300}
+                />
+              ) : (
+                <p>No keywords available.</p>
+              )}
             </div>
           </div>
 
@@ -170,7 +230,9 @@ export default function App() {
             <h3 className="text-xl font-semibold mb-2">Content Suggestions</h3>
             {contentSuggestions.length > 0 ? (
               <ul className="list-disc ml-6 space-y-1">
-                {contentSuggestions.map((suggestion, idx) => <li key={idx}>{suggestion}</li>)}
+                {contentSuggestions.map((suggestion, idx) => (
+                  <li key={idx}>{suggestion}</li>
+                ))}
               </ul>
             ) : (
               <p>No content suggestions available.</p>
@@ -182,13 +244,14 @@ export default function App() {
             <h3 className="text-xl font-semibold mb-2">Executive Summary</h3>
             {summaryBulletPoints.length > 0 ? (
               <ul className="list-disc ml-6 space-y-1">
-                {summaryBulletPoints.map((point, index) => <li key={index}>{point}</li>)}
+                {summaryBulletPoints.map((point, index) => (
+                  <li key={index}>{point}</li>
+                ))}
               </ul>
             ) : (
               <p>No executive summary available.</p>
             )}
           </div>
-
         </div>
       </div>
     </div>
